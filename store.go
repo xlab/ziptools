@@ -33,6 +33,8 @@ func (d *DB) Close() {
 	d.db.Close()
 }
 
+// Find a city that has the specified zip code. This methods looks
+// for an exact match.
 func (d *DB) GetCity(z Zip) (city string, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(zipsBuck); b != nil {
@@ -44,6 +46,8 @@ func (d *DB) GetCity(z Zip) (city string, err error) {
 	return
 }
 
+// Get list of zip codes in the specified city. This methods looks
+// for an exact match.
 func (d *DB) GetZips(city string) (zips ZipList, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(citiesBuck); b != nil {
@@ -55,6 +59,7 @@ func (d *DB) GetZips(city string) (zips ZipList, err error) {
 	return
 }
 
+// Find all cities that match the given substring.
 func (d *DB) FindCities(citypart string) (cities CityList, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(subCitiesBuck); b != nil {
@@ -75,6 +80,7 @@ func (d *DB) FindCities(citypart string) (cities CityList, err error) {
 	return
 }
 
+// Find all zip codes that match the given substring.
 func (d *DB) FindZips(zippart string) (zips ZipList, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(subZipsBuck); b != nil {
