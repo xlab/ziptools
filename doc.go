@@ -20,6 +20,15 @@
 //     -csv="zip_code_database.csv.gz": gzipped .csv file with zip codes.
 //     -db="zipcodes.db": file to store a newly created zip codes database.
 //
+// Installation and Examples
+//
+// After the Bolt database is created, you may remove zip_code_database.csv.gz.
+//
+//   go get https://github.com/xlab/ziptools/zipimport
+//   go get https://github.com/xlab/ziptools/zipsearch
+//   zipimport
+//   du -csh zipcodes.db
+//
 // The zipsearch tool leverages the ziptools package and provides a simple cli interface
 // for searching zip codes and cities within a console window (for testing purposes).
 //
