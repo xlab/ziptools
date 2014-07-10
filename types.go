@@ -72,7 +72,7 @@ func (c CityList) Range(offset, limit int) CityList {
 
 // Bytes returns a serialized version of a zip list. First byte represents the length.
 //
-// [N][zip1][zip2]...[zipN]
+//  [N][zip1][zip2]...[zipN]
 func (z ZipList) Bytes() []byte {
 	var buf bytes.Buffer
 	buf.WriteByte(byte(len(z)))
