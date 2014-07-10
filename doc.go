@@ -1,4 +1,4 @@
-// Package ziptools provides functionality to search through USA zip codes and cities extremely fast.
+// Package ziptools provides functionality to search through USA zip codes and cities in extremely fast way.
 // Internally it uses the Bolt — blazing fast in-memory key-value storage that allows to
 // cache the codes and city names effectively.
 //
