@@ -16,9 +16,9 @@ func TestNew(t *testing.T) {
 
 func TestZipListMarshalJSON(t *testing.T) {
 	list := ZipList{
-		NewZip("11111"), NewZip("22222"), NewZip("3"),
+		NewZip("11111"), NewZip("02222"), NewZip("3"),
 	}
-	exp := "[11111,22222,3]"
+	exp := `["11111","02222","3"]`
 	out, err := json.Marshal(list)
 	assert.NoError(t, err)
 	assert.Equal(t, exp, string(out))

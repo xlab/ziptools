@@ -32,7 +32,7 @@ func (z Zip) String() string {
 
 // MarshalJSON represents a zip as a string while marshaling as JSON.
 func (z Zip) MarshalJSON() ([]byte, error) {
-	return []byte(z.String()), nil
+	return []byte(fmt.Sprintf(`"%s"`, z)), nil
 }
 
 // Bytes represents a zip as bytes.
