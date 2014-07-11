@@ -1,6 +1,7 @@
 package ziptools
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +12,16 @@ func TestNew(t *testing.T) {
 	zip2 := NewZip("123")
 	assert.Equal(t, "12345", zip.String())
 	assert.Equal(t, "123", zip2.String())
+}
+
+func TestZipListMarshalJSON(t *testing.T) {
+	list := ZipList{
+		NewZip("11111"), NewZip("22222"), NewZip("3"),
+	}
+	exp := "[11111,22222,3]"
+	out, err := json.Marshal(list)
+	assert.NoError(t, err)
+	assert.Equal(t, exp, string(out))
 }
 
 func TestZipListBytes(t *testing.T) {
