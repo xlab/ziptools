@@ -3,7 +3,7 @@ package ziptools
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"strconv"
 )
 
 const (
@@ -27,12 +27,12 @@ func NewZip(str string) (zip Zip) {
 
 // String represents a zip as a string.
 func (z Zip) String() string {
-	return fmt.Sprintf("%s", z.Bytes())
+	return string(z.Bytes())
 }
 
 // MarshalJSON represents a zip as a string while marshaling as JSON.
 func (z Zip) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s"`, z)), nil
+	return []byte(strconv.Quote(z.String())), nil
 }
 
 // Bytes represents a zip as bytes.
