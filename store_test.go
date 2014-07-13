@@ -30,7 +30,7 @@ func TestGetLocation(t *testing.T) {
 		log.Fatalln(err)
 	}
 	defer db.Close()
-	exp := Location{
+	exp := &Location{
 		Name:   "Atlanta",
 		State:  "TX",
 		Locode: NewLocode("TAT"),
