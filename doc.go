@@ -1,6 +1,6 @@
 // Package ziptools provides functionality to search through USA zip codes and cities in extremely fast way.
 // Internally it uses the Bolt — blazing fast in-memory key-value storage that allows to
-// cache the codes and city names effectively.
+// cache the codes and city names effectively. LOCODE searches supported.
 //
 // 	$ go test -bench=.
 // 	PASS
@@ -17,7 +17,8 @@
 //
 //   $ zipimport -h
 //   Usage of zipimport:
-//     -csv="zip_code_database.csv.gz": gzipped .csv file with zip codes.
+//     -zips="zip_code_database.csv.gz": gzipped .csv file with zip codes.
+//     -locodes="us_locode_database.csv.gz": gzipped .csv file with locodes.
 //     -db="zipcodes.db": file to store a newly created zip codes database.
 //
 // Installation and Examples

@@ -9,6 +9,8 @@ import (
 
 var (
 	citiesBuck    = []byte("cities")
+	locodesBuck   = []byte("locodes")
+	locationsBuck = []byte("locations")
 	zipsBuck      = []byte("zips")
 	subZipsBuck   = []byte("subzips")
 	subCitiesBuck = []byte("subcities")
@@ -33,12 +35,25 @@ func (d *DB) Close() {
 	d.db.Close()
 }
 
-// Get a city that has is assigned to the specified zip code.
+// GetCity gets a city that is assigned to the specified zip code.
 // This methods looks for an exact match.
 func (d *DB) GetCity(z Zip) (city string, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(zipsBuck); b != nil {
 			city = string(b.Get(z.Bytes()))
+			return nil
+		}
+		return bolt.ErrBucketNotFound
+	})
+	return
+}
+
+// GetLocation gets a location that is assigned to the specified locode.
+// This methods looks for an exact match.
+func (d *DB) GetLocation(l Locode) (loc Location, err error) {
+	err = d.db.View(func(tx *bolt.Tx) error {
+		if b := tx.Bucket(locationsBuck); b != nil {
+			loc.FromBytes(b.Get(l.Bytes()))
 			return nil
 		}
 		return bolt.ErrBucketNotFound
@@ -52,6 +67,19 @@ func (d *DB) GetZips(city string) (zips ZipList, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(citiesBuck); b != nil {
 			zips.FromBytes(b.Get([]byte(city)))
+			return nil
+		}
+		return bolt.ErrBucketNotFound
+	})
+	return
+}
+
+// Get a list of locodes for the specified city. This methods looks
+// for an exact match.
+func (d *DB) GetLocodes(city string) (locodes LocodeList, err error) {
+	err = d.db.View(func(tx *bolt.Tx) error {
+		if b := tx.Bucket(locodesBuck); b != nil {
+			locodes.FromBytes(b.Get([]byte(city)))
 			return nil
 		}
 		return bolt.ErrBucketNotFound

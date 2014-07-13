@@ -3,7 +3,8 @@
 //
 //   $ zipimport -h
 //   Usage of zipimport:
-//     -csv="zip_code_database.csv.gz": gzipped .csv file with zip codes.
+//     -zips="zip_code_database.csv.gz": gzipped .csv file with zip codes.
+//     -locodes="us_locode_database.csv.gz": gzipped .csv file with locodes.
 //     -db="zipcodes.db": file to store a newly created zip codes database.
 package main
 
@@ -15,6 +16,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/boltdb/bolt"
 	"github.com/xlab/ziptools"
@@ -23,16 +25,20 @@ import (
 var (
 	citiesBuck    = []byte("cities")
 	zipsBuck      = []byte("zips")
+	locodesBuck   = []byte("locodes")
+	locationsBuck = []byte("locations")
 	subZipsBuck   = []byte("subzips")
 	subCitiesBuck = []byte("subcities")
 )
 
 var dbPath string
-var csvPath string
+var zipsPath string
+var locodesPath string
 
 func init() {
 	flag.StringVar(&dbPath, "db", "zipcodes.db", "file to store a newly created zip codes database.")
-	flag.StringVar(&csvPath, "csv", "zip_code_database.csv.gz", "gzipped .csv file with zip codes.")
+	flag.StringVar(&zipsPath, "zips", "zip_code_database.csv.gz", "gzipped .csv file with zip codes.")
+	flag.StringVar(&locodesPath, "locodes", "us_locode_database.csv.gz", "gzipped .csv file with locodes.")
 	flag.Parse()
 }
 
@@ -55,27 +61,83 @@ func run() (err error) {
 	}
 	defer db.db.Close()
 
-	// open the CSV file
-	gzipf, err := os.Open(csvPath)
+	var r io.Reader
+	var n int
+	gzips, err := os.Open(zipsPath)
 	if err != nil {
 		return
 	}
-	defer gzipf.Close()
-	// decompress stream
-	var r io.Reader
-	if r, err = gzip.NewReader(gzipf); err != nil {
+	defer gzips.Close()
+	if r, err = gzip.NewReader(gzips); err != nil {
 		return err
 	}
-	var n int
 	if n, err = db.addZips(csv.NewReader(r)); err != nil {
 		return
 	}
 	log.Printf("zipimport: %d zip codes imported", n)
+
+	glocodes, err := os.Open(locodesPath)
+	if err != nil {
+		return
+	}
+	defer glocodes.Close()
+	if r, err = gzip.NewReader(glocodes); err != nil {
+		return err
+	}
+	if n, err = db.addLocations(csv.NewReader(r)); err != nil {
+		return
+	}
+	log.Printf("zipimport: %d locations imported", n)
+
+	if err = db.addLocodes(); err != nil {
+		return
+	}
 	if err = db.addSubstrings(); err != nil {
 		return
 	}
 	log.Println("zipimport: done indexing")
 	return
+}
+
+func (d *DB) addLocations(csv *csv.Reader) (n int, err error) {
+	// begin a writing transaction
+	tx, err := d.db.Begin(true)
+	if err != nil {
+		return
+	}
+	var locations *bolt.Bucket
+	if locations, err = tx.CreateBucketIfNotExists(locationsBuck); err != nil {
+		return
+	}
+	for {
+		var fields []string
+		fields, err = csv.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Println("zipimport: ignored a locode line in CSV due to an error", err)
+			continue
+		}
+		if fields[7] == "RR" || fields[7] == "QQ" || fields[7] == "XX" {
+			continue
+		}
+		location := ziptools.Location{
+			State:  fields[5],
+			Locode: ziptools.NewLocode(fields[2]),
+		}
+		if idx := strings.Index(fields[3], "/"); idx < 0 {
+			location.Name = fields[3]
+		} else {
+			location.Name = fields[3][:idx]
+		}
+		// locode = location
+		if err = locations.Put(location.Locode.Bytes(), location.Bytes()); err != nil {
+			return
+		}
+		n++
+	}
+	return n, tx.Commit()
 }
 
 func (d *DB) addZips(csv *csv.Reader) (n int, err error) {
@@ -88,7 +150,7 @@ func (d *DB) addZips(csv *csv.Reader) (n int, err error) {
 	if zips, err = tx.CreateBucketIfNotExists(zipsBuck); err != nil {
 		return
 	}
-	// read CSV and fill the buckets
+
 	for {
 		var fields []string
 		fields, err = csv.Read()
@@ -96,7 +158,8 @@ func (d *DB) addZips(csv *csv.Reader) (n int, err error) {
 			if err == io.EOF {
 				break
 			}
-			log.Println("zipimport: ignored a csv line due to an error", err)
+			log.Println("zipimport: ignored a zip line in CSV due to an error", err)
+			continue
 		}
 		if fields[1] == "MILITARY" {
 			continue
@@ -186,7 +249,65 @@ func (d *DB) addSubstrings() (err error) {
 	}
 
 	// wait until writer is done
-	<-errC
+	if err = <-errC; err != nil {
+		return
+	}
+	return tx.Commit()
+}
+
+func (d *DB) addLocodes() (err error) {
+	// begin a writing transaction
+	tx, err := d.db.Begin(true)
+	if err != nil {
+		return
+	}
+	var locodes *bolt.Bucket
+	if locodes, err = tx.CreateBucketIfNotExists(locodesBuck); err != nil {
+		return
+	}
+	errC := make(chan error, 1)
+	pairs := make(chan struct{ k, v []byte }, 100)
+	go func() {
+		// this is a writing goroutine
+		for p := range pairs {
+			locode := string(p.k)
+			var location ziptools.Location
+			city := []byte(location.FromBytes(p.v).Name)
+			// put full city name -> locodelist
+			list := d.getListL(locodes, city)
+			list = append(list, ziptools.NewLocode(locode))
+			if err := locodes.Put(city, list.Bytes()); err != nil {
+				errC <- err
+				return
+			}
+		}
+		errC <- nil
+	}()
+
+	// Iterate over locations in read-only tx
+	if err = d.db.View(func(tx *bolt.Tx) error {
+		if b := tx.Bucket(locationsBuck); b != nil {
+			err := b.ForEach(func(k []byte, v []byte) error {
+				select {
+				case err := <-errC:
+					return err
+				default:
+					pairs <- struct{ k, v []byte }{k, v}
+					return nil
+				}
+			})
+			close(pairs)
+			return err
+		}
+		return bolt.ErrBucketNotFound
+	}); err != nil {
+		return
+	}
+
+	// wait until writer is done
+	if err = <-errC; err != nil {
+		return
+	}
 	return tx.Commit()
 }
 
@@ -222,5 +343,10 @@ func (d *DB) putSubstringZipList(buck *bolt.Bucket, str string, zip ziptools.Zip
 
 // Gets a ZipList by key from a bucket.
 func (d *DB) getList(buck *bolt.Bucket, key []byte) (list ziptools.ZipList) {
+	return list.FromBytes(buck.Get(key))
+}
+
+// Gets a LocodeList by key from a bucket.
+func (d *DB) getListL(buck *bolt.Bucket, key []byte) (list ziptools.LocodeList) {
 	return list.FromBytes(buck.Get(key))
 }
