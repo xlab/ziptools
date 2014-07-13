@@ -50,7 +50,8 @@ func (d *DB) GetCity(z Zip) (city string, err error) {
 
 // GetLocation gets a location that is assigned to the specified locode.
 // This methods looks for an exact match.
-func (d *DB) GetLocation(l Locode) (loc Location, err error) {
+func (d *DB) GetLocation(l Locode) (loc *Location, err error) {
+	loc = &Location{}
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(locationsBuck); b != nil {
 			loc.FromBytes(b.Get(l.Bytes()))
