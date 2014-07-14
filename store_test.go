@@ -94,6 +94,24 @@ func TestFindCities(t *testing.T) {
 	assert.Equal(t, exp, got)
 }
 
+func TestFindLocodes(t *testing.T) {
+	db, err := Open(dbPath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer db.Close()
+	exp := LocodeList{
+		NewLocode("IEB"), NewLocode("IEN"), NewLocode("JBN"),
+		NewLocode("JCJ"), NewLocode("LAC"), NewLocode("LC5"),
+		NewLocode("LCS"), NewLocode("LNC"), NewLocode("LNS"),
+		NewLocode("LNW"), NewLocode("LTX"), NewLocode("LZC"),
+		NewLocode("WJF"), NewLocode("ZLI"),
+	}
+	got, err := db.FindLocodes("lanca")
+	assert.NoError(t, err)
+	assert.Equal(t, exp, got)
+}
+
 // Benchmarks ===============================================
 
 func BenchmarkGetCity(b *testing.B) {
@@ -188,5 +206,20 @@ func BenchmarkFindCities(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = db.FindCities(cities[i%6])
+	}
+}
+
+func BenchmarkFindLocodes(b *testing.B) {
+	db, err := Open(dbPath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer db.Close()
+	cities := []string{
+		"york", "field", "spring", "son", "nch", "as",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = db.FindLocodes(cities[i%6])
 	}
 }

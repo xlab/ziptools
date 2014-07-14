@@ -8,12 +8,13 @@ import (
 )
 
 var (
-	citiesBuck    = []byte("cities")
-	locodesBuck   = []byte("locodes")
-	locationsBuck = []byte("locations")
-	zipsBuck      = []byte("zips")
-	subZipsBuck   = []byte("subzips")
-	subCitiesBuck = []byte("subcities")
+	citiesBuck     = []byte("cities")
+	locodesBuck    = []byte("locodes")
+	locationsBuck  = []byte("locations")
+	zipsBuck       = []byte("zips")
+	subZipsBuck    = []byte("subzips")
+	subCitiesBuck  = []byte("subcities")
+	subLocodesBuck = []byte("sublocodes")
 )
 
 // DB abstracts database access.
@@ -102,6 +103,18 @@ func (d *DB) FindCities(citypart string) (cities CityList, err error) {
 					cities = append(cities, city)
 				}
 			}
+			return nil
+		}
+		return bolt.ErrBucketNotFound
+	})
+	return
+}
+
+// Find all locodes by a given substring of a city name.
+func (d *DB) FindLocodes(citypart string) (locodes LocodeList, err error) {
+	err = d.db.View(func(tx *bolt.Tx) error {
+		if b := tx.Bucket(subLocodesBuck); b != nil {
+			locodes.FromBytes(b.Get([]byte(citypart)))
 			return nil
 		}
 		return bolt.ErrBucketNotFound

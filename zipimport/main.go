@@ -23,12 +23,13 @@ import (
 )
 
 var (
-	citiesBuck    = []byte("cities")
-	zipsBuck      = []byte("zips")
-	locodesBuck   = []byte("locodes")
-	locationsBuck = []byte("locations")
-	subZipsBuck   = []byte("subzips")
-	subCitiesBuck = []byte("subcities")
+	citiesBuck     = []byte("cities")
+	zipsBuck       = []byte("zips")
+	locodesBuck    = []byte("locodes")
+	locationsBuck  = []byte("locations")
+	subZipsBuck    = []byte("subzips")
+	subCitiesBuck  = []byte("subcities")
+	subLocodesBuck = []byte("sublocodes")
 )
 
 var dbPath string
@@ -184,6 +185,7 @@ func (d *DB) addSubstrings() (err error) {
 	var cities *bolt.Bucket
 	var subcities *bolt.Bucket
 	var subzips *bolt.Bucket
+
 	if cities, err = tx.CreateBucketIfNotExists(citiesBuck); err != nil {
 		return
 	}
@@ -262,7 +264,11 @@ func (d *DB) addLocodes() (err error) {
 		return
 	}
 	var locodes *bolt.Bucket
+	var sublocodes *bolt.Bucket
 	if locodes, err = tx.CreateBucketIfNotExists(locodesBuck); err != nil {
+		return
+	}
+	if sublocodes, err = tx.CreateBucketIfNotExists(subLocodesBuck); err != nil {
 		return
 	}
 	errC := make(chan error, 1)
@@ -270,13 +276,19 @@ func (d *DB) addLocodes() (err error) {
 	go func() {
 		// this is a writing goroutine
 		for p := range pairs {
-			locode := string(p.k)
 			var location ziptools.Location
-			city := []byte(location.FromBytes(p.v).Name)
+			locode := ziptools.NewLocode(string(p.k))
+			city := location.FromBytes(p.v).Name
 			// put full city name -> locodelist
-			list := d.getListL(locodes, city)
-			list = append(list, ziptools.NewLocode(locode))
-			if err := locodes.Put(city, list.Bytes()); err != nil {
+			list := d.getListL(locodes, []byte(city))
+			list = append(list, locode)
+			if err := locodes.Put([]byte(city), list.Bytes()); err != nil {
+				errC <- err
+				return
+			}
+			// put subcities -> locodelist
+			str := strings.ToLower(city)
+			if err = d.putSubstringLocodeList(sublocodes, str, locode); err != nil {
 				errC <- err
 				return
 			}
@@ -322,6 +334,36 @@ func (d *DB) putSubstringZipList(buck *bolt.Bucket, str string, zip ziptools.Zip
 		seen[substr] = struct{}{}
 		list := d.getList(buck, []byte(substr))
 		list = append(list, zip)
+		if err := buck.Put([]byte(substr), list.Bytes()); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for i := range str {
+		if err := put(str[0:i]); err != nil {
+			return err
+		}
+	}
+	for i := range str {
+		if err := put(str[i:len(str)]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// putSubstringLocodeList generates all possible substrings (prepend, append),
+// and puts them to bucket as keys to LocodeList.
+func (d *DB) putSubstringLocodeList(buck *bolt.Bucket, str string, loc ziptools.Locode) error {
+	seen := make(map[string]struct{})
+	put := func(substr string) error {
+		if _, ok := seen[substr]; ok || len(substr) < 1 {
+			return nil
+		}
+		seen[substr] = struct{}{}
+		list := d.getListL(buck, []byte(substr))
+		list = append(list, loc)
 		if err := buck.Put([]byte(substr), list.Bytes()); err != nil {
 			return err
 		}
