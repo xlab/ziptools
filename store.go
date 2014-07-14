@@ -114,6 +114,7 @@ func (d *DB) FindCities(citypart string) (cities CityList, err error) {
 func (d *DB) FindLocodes(citypart string) (locodes LocodeList, err error) {
 	err = d.db.View(func(tx *bolt.Tx) error {
 		if b := tx.Bucket(subLocodesBuck); b != nil {
+			citypart = strings.ToLower(citypart)
 			locodes.FromBytes(b.Get([]byte(citypart)))
 			return nil
 		}
